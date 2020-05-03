@@ -250,17 +250,17 @@ class PdfFileWriter(object):
 
         :param str fname: The filename to display.
         :param str fdata: The data in the file.
-      
+
         Reference:
         https://www.adobe.com/content/dam/Adobe/en/devnet/acrobat/pdfs/PDF32000_2008.pdf
         Section 7.11.3
         """
-        
+
         # We need 3 entries:
         # * The file's data
         # * The /Filespec entry
         # * The file's name, which goes in the Catalog
-        
+
 
         # The entry for the file
         """ Sample:
@@ -291,14 +291,14 @@ class PdfFileWriter(object):
         """
         efEntry = DictionaryObject()
         efEntry.update({ NameObject("/F"):file_entry })
-        
+
         filespec = DictionaryObject()
         filespec.update({
                 NameObject("/Type"): NameObject("/Filespec"),
                 NameObject("/F"): createStringObject(fname),  # Perhaps also try TextStringObject
                 NameObject("/EF"): efEntry
                 })
-                
+
         # Then create the entry for the root, as it needs a reference to the Filespec
         """ Sample:
         1 0 obj
@@ -315,7 +315,7 @@ class PdfFileWriter(object):
         embeddedFilesNamesDictionary.update({
                 NameObject("/Names"): ArrayObject([createStringObject(fname), filespec])
                 })
-        
+
         embeddedFilesDictionary = DictionaryObject()
         embeddedFilesDictionary.update({
                 NameObject("/EmbeddedFiles"): embeddedFilesNamesDictionary
@@ -329,7 +329,7 @@ class PdfFileWriter(object):
         """
         Copy pages from reader to writer. Includes an optional callback parameter
         which is invoked after pages are appended to the writer.
-        
+
         :param reader: a PdfFileReader object from which to copy page
             annotations to this writer object.  The writer's annots
         will then be updated
@@ -373,7 +373,7 @@ class PdfFileWriter(object):
     def cloneReaderDocumentRoot(self, reader):
         '''
         Copy the reader document root to the writer.
-        
+
         :param reader:  PdfFileReader from the document root should be copied.
         :callback after_page_append
         '''
@@ -485,7 +485,6 @@ class PdfFileWriter(object):
         # Begin writing:
         object_positions = []
         stream.write(self._header + b_("\n"))
-        stream.write(b_("%\xE2\xE3\xCF\xD3\n"))
         for i in range(len(self._objects)):
             idnum = (i + 1)
             obj = self._objects[i]
@@ -572,8 +571,6 @@ class PdfFileWriter(object):
                     self._sweepIndirectReferences(externMap, realdata)
                     return data
             else:
-                if data.pdf.stream.closed:
-                    raise ValueError("I/O operation on closed file: {}".format(data.pdf.stream.name))
                 newobj = externMap.get(data.pdf, {}).get(data.generation, {}).get(data.idnum, None)
                 if newobj == None:
                     try:
@@ -591,9 +588,6 @@ class PdfFileWriter(object):
                         return newobj_ido
                     except ValueError:
                         # Unable to resolve the Object, returning NullObject instead.
-                        warnings.warn("Unable to resolve [{}: {}], returning NullObject instead".format(
-                            data.__class__.__name__, data
-                        ))
                         return NullObject()
                 return newobj
         else:
@@ -896,23 +890,29 @@ class PdfFileWriter(object):
 
             pageRef.__setitem__(NameObject('/Contents'), content)
 
+
     def addURI(self, pagenum, uri, rect, border=None):
         """
+
         Add an URI from a rectangular area to the specified page.
         This uses the basic structure of AddLink
 
-        :param int pagenum: index of the page on which to place the URI action.
+        :param int pagenum: index of the page on which to place the link.
         :param int uri: string -- uri of resource to link to.
         :param rect: :class:`RectangleObject<PyPDF2.generic.RectangleObject>` or array of four
-            integers specifying the clickable rectangular area
-            ``[xLL, yLL, xUR, yUR]``, or string in the form ``"[ xLL yLL xUR yUR ]"``.
+        integers specifying the clickable rectangular area
+        ``[xLL, yLL, xUR, yUR]``, or string in the form ``"[ xLL yLL xUR yUR ]"``.
         :param border: if provided, an array describing border-drawing
-            properties. See the PDF spec for details. No border will be
-            drawn if this argument is omitted.
+        properties. See the PDF spec for details. No border will be
+        drawn if this argument is omitted.
 
         REMOVED FIT/ZOOM ARG
         -John Mulligan
+
         """
+
+
+
 
         pageLink = self.getObject(self._pages)['/Kids'][pagenum]
         pageRef = self.getObject(pageLink)
@@ -923,7 +923,7 @@ class PdfFileWriter(object):
                 dashPattern = ArrayObject([NameObject(n) for n in border[3]])
                 borderArr.append(dashPattern)
         else:
-            borderArr = [NumberObject(2)] * 3
+            borderArr = [NumberObject(0)] * 3
 
         if isString(rect):
             rect = NameObject(rect)
@@ -933,6 +933,7 @@ class PdfFileWriter(object):
             rect = RectangleObject(rect)
 
         lnk2 = DictionaryObject()
+
         lnk2.update({
         NameObject('/S'): NameObject('/URI'),
         NameObject('/URI'): TextStringObject(uri)
@@ -953,6 +954,8 @@ class PdfFileWriter(object):
             pageRef['/Annots'].append(lnkRef)
         else:
             pageRef[NameObject('/Annots')] = ArrayObject([lnkRef])
+
+    _valid_layouts = ['/NoLayout', '/SinglePage', '/OneColumn', '/TwoColumnLeft', '/TwoColumnRight', '/TwoPageLeft', '/TwoPageRight']
 
     def addLink(self, pagenum, pagedest, rect, border=None, fit='/Fit', *args):
         """
@@ -1667,12 +1670,11 @@ class PdfFileReader(object):
                     raise utils.PdfReadError("Expected object ID (%d %d) does not match actual (%d %d); xref table not zero-indexed." \
                                      % (indirectReference.idnum, indirectReference.generation, idnum, generation))
                 else: pass # xref table is corrected in non-strict mode
-            elif idnum != indirectReference.idnum and self.strict:
+            elif idnum != indirectReference.idnum:
                 # some other problem
                 raise utils.PdfReadError("Expected object ID (%d %d) does not match actual (%d %d)." \
                                          % (indirectReference.idnum, indirectReference.generation, idnum, generation))
-            if self.strict:
-                assert generation == indirectReference.generation
+            assert generation == indirectReference.generation
             retval = readObject(self.stream, self)
 
             # override encryption is used for the /Encrypt dictionary
@@ -2058,7 +2060,7 @@ class PdfFileReader(object):
         if encrypt['/Filter'] != '/Standard':
             raise NotImplementedError("only Standard PDF encryption handler is available")
         if not (encrypt['/V'] in (1, 2)):
-            raise NotImplementedError("only algorithm code 1 and 2 are supported. This PDF uses code %s" % encrypt['/V'])
+            raise NotImplementedError("only algorithm code 1 and 2 are supported")
         user_password, key = self._authenticateUserPassword(password)
         if user_password:
             self._decryption_key = key
@@ -2227,8 +2229,7 @@ class PageObject(DictionaryObject):
         return self
 
     def _rotate(self, angle):
-        rotateObj = self.get("/Rotate", 0)
-        currentAngle = rotateObj if isinstance(rotateObj, int) else rotateObj.getObject()
+        currentAngle = self.get("/Rotate", 0)
         self[NameObject("/Rotate")] = NumberObject(currentAngle + angle)
 
     def _mergeResources(res1, res2, resource):
@@ -2667,7 +2668,6 @@ class PageObject(DictionaryObject):
                 _text = operands[0]
                 if isinstance(_text, TextStringObject):
                     text += _text
-                    text += "\n"
             elif operator == b_("T*"):
                 text += "\n"
             elif operator == b_("'"):
@@ -2734,7 +2734,7 @@ class ContentStream(DecodedStreamObject):
         if isinstance(stream, ArrayObject):
             data = b_("")
             for s in stream:
-                data += b_(s.getObject().getData())
+                data += s.getObject().getData()
             stream = BytesIO(b_(data))
         else:
             stream = BytesIO(b_(stream.getData()))
